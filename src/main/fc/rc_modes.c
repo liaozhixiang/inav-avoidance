@@ -122,7 +122,7 @@ bool isUsingNavigationModes(void)
     return isUsingNAVModes;
 }
 
-bool IS_RC_MODE_ACTIVE(boxId_e boxId)
+bool IS_RC_MODE_ACTIVE(boxId_e boxId)//大概是检查rcModeActivationMask.bits中某一个模式（boxId）是否启用
 {
     return bitArrayGet(rcModeActivationMask.bits, boxId);
 }

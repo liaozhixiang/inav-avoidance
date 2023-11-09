@@ -1,0 +1,11 @@
+taskMainLoop
+	applyWaypointNavigationAndAltitudeHold
+		applyMulticopterNavigationController
+			applyMulticopterAltitudeController
+			applyMulticopterPositionController
+			applyMulticopterHeadingController
+
+底层控制器
+updateClimbRateToAltitudeController
+
+航点的更新可能是在有限状态机中调用的

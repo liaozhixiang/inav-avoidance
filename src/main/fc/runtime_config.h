@@ -86,6 +86,7 @@ extern const char *armingDisableFlagNames[];
 // preventing arming, or zero if arming is not disabled.
 armingFlag_e isArmingDisabledReason(void);
 
+/* 定义了一些飞行模式 */
 typedef enum {
     ANGLE_MODE            = (1 << 0),
     HORIZON_MODE          = (1 << 1),

@@ -901,6 +901,7 @@ void initializePositionEstimator(void)
 /**
  * Update estimator
  *  Update rate: loop rate (>100Hz)
+ * 下一个函数会用到真实的位置、速度姿态等，在此处做更新
  */
 void updatePositionEstimator(void)
 {

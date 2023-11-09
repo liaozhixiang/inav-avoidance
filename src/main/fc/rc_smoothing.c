@@ -75,6 +75,9 @@ static int32_t applyRcUpdateFrequencyMedianFilter(int32_t newReading)
     return medianFilterReady ? quickMedianFilter9(filterSamples) : newReading;
 }
 
+/**
+ * 遥控指令插值
+ **/
 void rcInterpolationApply(bool isRXDataNew, timeUs_t currentTimeUs)
 {
     // Compute the RC update frequency

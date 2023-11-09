@@ -124,10 +124,13 @@ static void updateAltitudeThrottleController_MC(timeDelta_t deltaMicros)
     posControl.rcAdjustment[THROTTLE] = setDesiredThrottle(currentBatteryProfile->nav.mc.hover_throttle + rcThrottleCorrection, false);
 }
 
+/**
+ * 根据摇杆输入结合无人机当前模式得出爬升率，调用Z轴控制器计算期望高度desiredState.Pos.z 
+ */
 bool adjustMulticopterAltitudeFromRCInput(void)
 {
-    if (posControl.flags.isTerrainFollowEnabled) {
-        const float altTarget = scaleRangef(rcCommand[THROTTLE], getThrottleIdleValue(), motorConfig()->maxthrottle, 0, navConfig()->general.max_terrain_follow_altitude);
+    if (posControl.flags.isTerrainFollowEnabled) {  //处于地形跟随模式
+        const float altTarget = scaleRangef(rcCommand[THROTTLE], getThrottleIdleValue(), motorConfig()->maxthrottle, 0, navConfig()->general.max_terrain_follow_altitude); //油门值映射到目标高度
 
         // In terrain follow mode we apply different logic for terrain control
         if (posControl.flags.estAglStatus == EST_TRUSTED && altTarget > 10.0f) {
@@ -143,8 +146,9 @@ bool adjustMulticopterAltitudeFromRCInput(void)
         return true;
     }
     else {
+        
         const int16_t rcThrottleAdjustment = applyDeadbandRescaled(rcCommand[THROTTLE] - altHoldThrottleRCZero, rcControlsConfig()->alt_hold_deadband, -500, 500);
-        if (rcThrottleAdjustment) {
+        if (rcThrottleAdjustment) {  // 遥控器摇杆产生了有效控制量
             // set velocity proportional to stick movement
             float rcClimbRate;
 
@@ -162,7 +166,7 @@ bool adjustMulticopterAltitudeFromRCInput(void)
 
             return true;
         }
-        else {
+        else {  // 遥控器摇杆未产生有效控制量
             // Adjusting finished - reset desired position to stay exactly where pilot released the stick
             if (posControl.flags.isAdjustingAltitude) {
                 updateClimbRateToAltitudeController(0, 0, ROC_TO_ALT_RESET);
@@ -301,6 +305,7 @@ bool adjustMulticopterHeadingFromRCInput(void)
  *-----------------------------------------------------------*/
 static float lastAccelTargetX = 0.0f, lastAccelTargetY = 0.0f;
 
+/* disable一些有关CRUISE的状态，什么是BrakingMode? */
 void resetMulticopterBrakingMode(void)
 {
     DISABLE_STATE(NAV_CRUISE_BRAKING);
@@ -392,7 +397,9 @@ static void processMulticopterBrakingMode(const bool isAdjusting)
     UNUSED(isAdjusting);
 #endif
 }
-
+/**
+ * 重设了pid相关参数、rc调整值等
+ */
 void resetMulticopterPositionController(void)
 {
     for (int axis = 0; axis < 2; axis++) {

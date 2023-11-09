@@ -380,6 +380,9 @@ static bool emergencyArmingIsEnabled(void)
     return emergencyArmingUpdate(IS_RC_MODE_ACTIVE(BOXARM), false) && emergencyArmingCanOverrideArmingDisabled();
 }
 
+/**
+ * 将遥控器信号输入转化为俯仰、滚转、航向三个指令，并做合适的处理
+ */
 static void processPilotAndFailSafeActions(float dT)
 {
     if (failsafeShouldApplyControlInput()) {
@@ -896,7 +899,7 @@ void taskMainPidLoop(timeUs_t currentTimeUs)
     if (rxConfig()->rcFilterFrequency) {
         rcInterpolationApply(isRXDataNew, currentTimeUs);
     }
-
+//航点导航模式更新入口
     if (isRXDataNew) {
         updateWaypointsAndNavigationMode();
     }
@@ -906,6 +909,7 @@ void taskMainPidLoop(timeUs_t currentTimeUs)
     applyWaypointNavigationAndAltitudeHold();
 
     // Apply throttle tilt compensation
+    //什么是油门补偿
     applyThrottleTiltCompensation();
 
 #ifdef USE_POWER_LIMITS

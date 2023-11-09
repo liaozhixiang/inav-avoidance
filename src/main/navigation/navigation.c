@@ -694,7 +694,7 @@ static const navigationFSMStateDescriptor_t navFSM[NAV_STATE_COUNT] = {
             [NAV_FSM_EVENT_SWITCH_TO_EMERGENCY_LANDING]    = NAV_STATE_EMERGENCY_LANDING_INITIALIZE,
         }
     },
-
+// 航点导航模式的入口
     /** WAYPOINT mode ************************************************/
     [NAV_STATE_WAYPOINT_INITIALIZE] = {
         .persistentId = NAV_PERSISTENT_ID_WAYPOINT_INITIALIZE,
@@ -1578,26 +1578,28 @@ static navigationFSMEvent_t navOnEnteringState_NAV_STATE_WAYPOINT_INITIALIZE(nav
 {
     UNUSED(previousState);
 
-    if (!posControl.waypointCount || !posControl.waypointListValid) {
+    if (!posControl.waypointCount || !posControl.waypointListValid) { // 当没有航路点或者航点列表无效时触发导航错误事件
         return NAV_FSM_EVENT_ERROR;
     }
 
     // Prepare controllers
     resetPositionController();
-    resetAltitudeController(false);     // Make sure surface tracking is not enabled - WP uses global altitude, not AGL
+    resetAltitudeController(false);     // Make sure surface tracking is not enabled - WP uses global altitude, not AGL(above ground level)
 
-    if (posControl.activeWaypointIndex == posControl.startWpIndex || posControl.wpMissionRestart) {
+    //这段代码的作用是什么？
+    if (posControl.activeWaypointIndex == posControl.startWpIndex || posControl.wpMissionRestart) {  //如果活动航点为起始航点或者航点导航任务重启了，则执行以下命令
         /* Use p3 as the volatile jump counter, allowing embedded, rearmed jumps
         Using p3 minimises the risk of saving an invalid counter if a mission is aborted */
         setupJumpCounters();
-        posControl.activeWaypointIndex = posControl.startWpIndex;
-        wpHeadingControl.mode = NAV_WP_HEAD_MODE_NONE;
+        posControl.activeWaypointIndex = posControl.startWpIndex; // 将初始航点设置为活动航点
+        wpHeadingControl.mode = NAV_WP_HEAD_MODE_NONE;  //设置航向控制模式为NONE
     }
 
-    if (navConfig()->general.flags.waypoint_mission_restart == WP_MISSION_SWITCH) {
-        posControl.wpMissionRestart = posControl.activeWaypointIndex > posControl.startWpIndex ? !posControl.wpMissionRestart : false;
+    //如果waypoint_mission_restart任务是由于切换产生的，这段代码的作用又是啥？？
+    if (navConfig()->general.flags.waypoint_mission_restart == WP_MISSION_SWITCH) { //waypoint_mission_restart 这个枚举变量有三个枚举值：START RESUME SWITCH
+        posControl.wpMissionRestart = posControl.activeWaypointIndex > posControl.startWpIndex ? !posControl.wpMissionRestart : false; //wpMissionRestart bool类型变量（没找到初始化的的地方呢），为true的话代表任务重启。如果活动航点不是起始航点，则wpMissionRestart取反；
     } else {
-        posControl.wpMissionRestart = navConfig()->general.flags.waypoint_mission_restart == WP_MISSION_START;
+        posControl.wpMissionRestart = navConfig()->general.flags.waypoint_mission_restart == WP_MISSION_START; // 如果waypoint_mission_restart的值为START或者RESUME，则wpMissionRestart设为FALSE
     }
 
     return NAV_FSM_EVENT_SUCCESS;   // will switch to NAV_STATE_WAYPOINT_PRE_ACTION
@@ -1619,12 +1621,14 @@ static navigationFSMEvent_t navOnEnteringState_NAV_STATE_WAYPOINT_PRE_ACTION(nav
     /* A helper function to do waypoint-specific action */
     UNUSED(previousState);
 
-    switch ((navWaypointActions_e)posControl.waypointList[posControl.activeWaypointIndex].action) {
+    switch ((navWaypointActions_e)posControl.waypointList[posControl.activeWaypointIndex].action) { // action，这个action在何处被设置？ 虽然是uint8类型，但是用于储存这个活动航点的动作，见枚举类型navWaypointActions_e
         case NAV_WP_ACTION_HOLD_TIME:
         case NAV_WP_ACTION_WAYPOINT:
         case NAV_WP_ACTION_LAND:
+            //如果是第一个航点，即起始航点，则计算无人机当前位置到起始航点的bearing，将起始航点设为activeWaypoint，并调用setDesiredPositon设置期望xyzyaw
+            //如果不是第一个航点，计算activeWaypoint到输入值posControl.waypointList[posControl.activeWaypointIndex]的bearing，将输入值更新为activeWaypoint，并调用setDesiredPositon设置期望xyzyaw
             calculateAndSetActiveWaypoint(&posControl.waypointList[posControl.activeWaypointIndex]);
-            posControl.wpInitialDistance = calculateDistanceToDestination(&posControl.activeWaypoint.pos);
+            posControl.wpInitialDistance = calculateDistanceToDestination(&posControl.activeWaypoint.pos); // 计算无人机当前位置到activeWaypoint的距离
             posControl.wpInitialAltitude = posControl.actualState.abs.pos.z;
             posControl.wpAltitudeReached = false;
             return NAV_FSM_EVENT_SUCCESS;       // will switch to NAV_STATE_WAYPOINT_IN_PROGRESS
@@ -1676,8 +1680,7 @@ static navigationFSMEvent_t navOnEnteringState_NAV_STATE_WAYPOINT_IN_PROGRESS(na
 {
     UNUSED(previousState);
 
-    // If no position sensor available - land immediately
-    if ((posControl.flags.estPosStatus >= EST_USABLE) && (posControl.flags.estHeadingStatus >= EST_USABLE)) {
+    if ((posControl.flags.estPosStatus >= EST_USABLE) && (posControl.flags.estHeadingStatus >= EST_USABLE)) { // 如果传感器数据可用
         switch ((navWaypointActions_e)posControl.waypointList[posControl.activeWaypointIndex].action) {
             case NAV_WP_ACTION_HOLD_TIME:
             case NAV_WP_ACTION_WAYPOINT:
@@ -2304,6 +2307,9 @@ static int32_t calculateBearingFromDelta(float deltaX, float deltaY)
     return wrap_36000(RADIANS_TO_CENTIDEGREES(atan2_approx(deltaY, deltaX)));
 }
 
+/**
+ * 输入终点坐标，计算无人机当前坐标到终点坐标的距离 
+ */
 uint32_t calculateDistanceToDestination(const fpVector3_t * destinationPos)
 {
     const navEstimatedPosVel_t *posvel = navGetCurrentActualPositionAndVelocity();
@@ -2312,7 +2318,9 @@ uint32_t calculateDistanceToDestination(const fpVector3_t * destinationPos)
 
     return calculateDistanceFromDelta(deltaX, deltaY);
 }
-
+/**
+ * 输入的是目标点的位置，目标点位置减去当前无人机位置得到位移增量，通过xy方向的位移增量计算出bearing，bearing是航迹角不是航向角
+ */
 int32_t calculateBearingToDestination(const fpVector3_t * destinationPos)
 {
     const navEstimatedPosVel_t *posvel = navGetCurrentActualPositionAndVelocity();
@@ -2321,7 +2329,9 @@ int32_t calculateBearingToDestination(const fpVector3_t * destinationPos)
 
     return calculateBearingFromDelta(deltaX, deltaY);
 }
-
+/**
+ * 输入起点和终点坐标，得到这条航迹的航迹角
+ */
 int32_t calculateBearingBetweenLocalPositions(const fpVector3_t * startPos, const fpVector3_t * endPos)
 {
     const float deltaX = endPos->x - startPos->x;
@@ -2346,7 +2356,9 @@ bool navCalculatePathToDestination(navDestinationPath_t *result, const fpVector3
     result->bearing = calculateBearingFromDelta(deltaX, deltaY);
     return true;
 }
-
+/**
+ * 返回下一个航点的NED坐标 
+ */
 static bool getLocalPosNextWaypoint(fpVector3_t * nextWpPos)
 {
     // Only for WP Mode not Trackback. Ignore non geo waypoints except RTH and JUMP.
@@ -2378,6 +2390,8 @@ static bool getLocalPosNextWaypoint(fpVector3_t * nextWpPos)
 /*-----------------------------------------------------------
  * Check if waypoint is/was reached.
  * waypointBearing stores initial bearing to waypoint
+ * 输入：航点坐标、航点航向
+ * 返回：是或否到达输入的航点
  *-----------------------------------------------------------*/
 static bool isWaypointReached(const fpVector3_t * waypointPos, const int32_t * waypointBearing)
 {
@@ -2665,7 +2679,7 @@ void updateHomePosition(void)
         if (posControl.flags.estPosStatus >= EST_USABLE) {
             const navigationHomeFlags_t validHomeFlags = NAV_HOME_VALID_XY | NAV_HOME_VALID_Z;
             bool setHome = (posControl.rthState.homeFlags & validHomeFlags) != validHomeFlags;
-            switch ((nav_reset_type_e)positionEstimationConfig()->reset_home_type) {
+            switch ((nav_reset_type_e)positionEstimationConfig()->reset_home_type) {  //好高端
                 case NAV_RESET_NEVER:
                     break;
                 case NAV_RESET_ON_FIRST_ARM:
@@ -2866,6 +2880,7 @@ static fpVector3_t * rthGetTrackbackPos(void)
 
 /*-----------------------------------------------------------
  * Update flight statistics
+ * 记录行使里程
  *-----------------------------------------------------------*/
 static void updateNavigationFlightStatistics(void)
 {
@@ -2900,9 +2915,12 @@ void calculateInitialHoldPosition(fpVector3_t * pos)
     }
 }
 
-/*-----------------------------------------------------------
+/**
  * Set active XYZ-target and desired heading
- *-----------------------------------------------------------*/
+ * 输入：位置、航向、更新标志
+ * 输出：空
+ * 功能：将位置、航向等按条件保存到desiredState中，期望的状态(x,y,,z,yaw)
+ */
 void setDesiredPosition(const fpVector3_t * pos, int32_t yaw, navSetWaypointFlags_t useMask)
 {
     // XY-position update is allowed only when not braking in NAV_CRUISE_BRAKING
@@ -3001,9 +3019,12 @@ bool isFlightDetected(void)
     return STATE(AIRPLANE) ? isFixedWingFlying() : isMulticopterFlying();
 }
 
-/*-----------------------------------------------------------
- * Z-position controller
- *-----------------------------------------------------------*/
+/*
+ * Z-position Controller
+ * 输入：期望爬升率、目标高度、爬升模式
+ * 效果：得出desiredState中的期望高度？即z轴高度，后面的apply函数可以用到
+ * 缩写：ROC rate of climb, ROD rate of descent
+ **/
 void updateClimbRateToAltitudeController(float desiredClimbRate, float targetAltitude, climbRateToAltitudeControllerMode_e mode)
 {
 #define MIN_TARGET_CLIMB_RATE   100.0f  // cm/s
@@ -3089,6 +3110,7 @@ static void setupAltitudeController(void)
     }
 }
 
+/* 根据使用的机型调用不同的高度控制器函数,最终设置期望高度posControl.desiredState.Pos.z */
 static bool adjustAltitudeFromRCInput(void)
 {
     if (STATE(FIXED_WING_LEGACY)) {
@@ -3101,6 +3123,7 @@ static bool adjustAltitudeFromRCInput(void)
 
 /*-----------------------------------------------------------
  * Jump Counter support functions
+ 遍历列表中的所有航点，如果航点动作为action_junmp，那么将p2的值赋给p3，p1 p2 p3是个什么玩意儿？？？，p2是静态值，p3是可变值
  *-----------------------------------------------------------*/
 static void setupJumpCounters(void)
 {
@@ -3518,18 +3541,20 @@ static void mapWaypointToLocalPosition(fpVector3_t * localPos, const navWaypoint
 
     geoConvertGeodeticToLocal(localPos, &posControl.gpsOrigin, &wpLLH, altConv);
 }
-
+/**
+ * 根据输入的位置，计算bearing，并将输入位置设置为期望位置（没有应用）
+ */
 static void calculateAndSetActiveWaypointToLocalPosition(const fpVector3_t * pos)
 {
     // Calculate bearing towards waypoint and store it in waypoint bearing parameter (this will further be used to detect missed waypoints)
-    if (isWaypointNavTrackingActive() && !(posControl.activeWaypoint.pos.x == pos->x && posControl.activeWaypoint.pos.y == pos->y)) {
-        posControl.activeWaypoint.bearing = calculateBearingBetweenLocalPositions(&posControl.activeWaypoint.pos, pos);
+    if (isWaypointNavTrackingActive() && !(posControl.activeWaypoint.pos.x == pos->x && posControl.activeWaypoint.pos.y == pos->y)) { // 如果输入位置（pos）和活动航点的位置不同 且 开启了WaypointNavTrackingActive
+        posControl.activeWaypoint.bearing = calculateBearingBetweenLocalPositions(&posControl.activeWaypoint.pos, pos); // 将bearing设置为activeWaypoint位置指向输入位置（pos）这段航迹的bearing
     } else {
-        posControl.activeWaypoint.bearing = calculateBearingToDestination(pos);
+        posControl.activeWaypoint.bearing = calculateBearingToDestination(pos); // 相反（如输入的位置和活动航点的位置相同），则计算无人机当前位置到输入位置的bearing
     }
     posControl.activeWaypoint.nextTurnAngle = -1;     // no turn angle set (-1), will be set by WP mode as required
 
-    posControl.activeWaypoint.pos = *pos;
+    posControl.activeWaypoint.pos = *pos; // 将活动航点的位置设置为输入位置
 
     // Set desired position to next waypoint (XYZ-controller)
     setDesiredPosition(&posControl.activeWaypoint.pos, posControl.activeWaypoint.bearing, NAV_POS_UPDATE_XY | NAV_POS_UPDATE_Z | NAV_POS_UPDATE_HEADING);
@@ -3539,14 +3564,16 @@ geoAltitudeConversionMode_e waypointMissionAltConvMode(geoAltitudeDatumFlag_e da
 {
     return ((datumFlag & NAV_WP_MSL_DATUM) == NAV_WP_MSL_DATUM) ? GEO_ALT_ABSOLUTE : GEO_ALT_RELATIVE;
 }
-
+/**
+ * 将输入的航点LLH转为本地坐标NEU，将该坐标设置为期望坐标同时计算bearing
+ */
 static void calculateAndSetActiveWaypoint(const navWaypoint_t * waypoint)
 {
     fpVector3_t localPos;
-    mapWaypointToLocalPosition(&localPos, waypoint, waypointMissionAltConvMode(waypoint->p3));
-    calculateAndSetActiveWaypointToLocalPosition(&localPos);
+    mapWaypointToLocalPosition(&localPos, waypoint, waypointMissionAltConvMode(waypoint->p3)); // 将航点坐标从LLH转换成NEU，这里的p3存放的是高度转换模式
+    calculateAndSetActiveWaypointToLocalPosition(&localPos); // 根据输入值设置activeWaypoint.bearing，并将输入值设为活动航点，调用setDesiredPosition设置期望的xyzyaw
 
-    if (navConfig()->fw.wp_turn_smoothing) {
+    if (navConfig()->fw.wp_turn_smoothing) { // 如果开启了turn_smoothing则执行以下指令
         fpVector3_t posNextWp;
         if (getLocalPosNextWaypoint(&posNextWp)) {
             int32_t bearingToNextWp = calculateBearingBetweenLocalPositions(&posControl.activeWaypoint.pos, &posNextWp);
@@ -3615,17 +3642,18 @@ bool isWaypointNavTrackingActive(void)
     return FLIGHT_MODE(NAV_WP_MODE) || (posControl.flags.rthTrackbackActive && posControl.activeRthTBPointIndex != posControl.rthTBLastSavedIndex);
 }
 
-/*-----------------------------------------------------------
+/*
  * Process adjustments to alt, pos and yaw controllers
- *-----------------------------------------------------------*/
+ * 根据遥控器控制量计算得到期望高度、位置、航向，在posControl.desiredState中
+ */
 static void processNavigationRCAdjustments(void)
 {
     /* Process pilot's RC input. Disable all pilot's input when in FAILSAFE_MODE */
     navigationFSMStateFlags_t navStateFlags = navGetStateFlags(posControl.navState);
 
-    if (FLIGHT_MODE(FAILSAFE_MODE)) {
-        if (STATE(MULTIROTOR) && navStateFlags & NAV_RC_POS) {
-            resetMulticopterBrakingMode();
+    if (FLIGHT_MODE(FAILSAFE_MODE)) { //如果当前处于失效保护模式下
+        if (STATE(MULTIROTOR) && navStateFlags & NAV_RC_POS) { // 如果处于多旋翼模式且当前具有NAV_RC_POS状态
+            resetMulticopterBrakingMode(); //disable一些状态
         }
         posControl.flags.isAdjustingAltitude = false;
         posControl.flags.isAdjustingPosition = false;
@@ -3639,9 +3667,10 @@ static void processNavigationRCAdjustments(void)
     posControl.flags.isAdjustingHeading = (navStateFlags & NAV_RC_YAW) && adjustHeadingFromRCInput();
 }
 
-/*-----------------------------------------------------------
+/*
  * A main function to call position controllers at loop rate
- *-----------------------------------------------------------*/
+ * 将前面航点导航和高度保持获得的期望位置 -> 速度 -> 角速度 -> 倾角， 比较底层的控制
+ */
 void applyWaypointNavigationAndAltitudeHold(void)
 {
     const timeUs_t currentTimeUs = micros();
@@ -3710,9 +3739,10 @@ void applyWaypointNavigationAndAltitudeHold(void)
     navDesiredHeading = wrap_36000(posControl.desiredState.yaw);
 }
 
-/*-----------------------------------------------------------
+/**
  * Set CF's FLIGHT_MODE from current NAV_MODE
- *-----------------------------------------------------------*/
+ * 启用或者关闭一些飞行模式，还不明白为什么这么做
+ */
 void switchNavigationFlightModes(void)
 {
     const flightModeFlags_e enabledNavFlightModes = navGetMappedFlightModes(posControl.navState);
@@ -4082,6 +4112,7 @@ navArmingBlocker_e navigationIsBlockingArming(bool *usedBypass)
 
 /**
  * Indicate ready/not ready status
+ * 家坐标设置好以后响一次（BEEPER_READY_BEEP）
  */
 static void updateReadyStatus(void)
 {
@@ -4094,9 +4125,10 @@ static void updateReadyStatus(void)
     }
 }
 
+/* 如果启用GCS辅助导航并且没有启用BOXGCSNAV遥控模式，那么将重置GCS辅助导航，目的是始终保持GCS辅助导航和BOXGCSNAV同时开启？*/
 void updateFlightBehaviorModifiers(void)
 {
-    if (posControl.flags.isGCSAssistedNavigationEnabled && !IS_RC_MODE_ACTIVE(BOXGCSNAV)) {
+    if (posControl.flags.isGCSAssistedNavigationEnabled && !IS_RC_MODE_ACTIVE(BOXGCSNAV)) { //各种的位操作，看不懂
         posControl.flags.isGCSAssistedNavigationReset = true;
     }
 
@@ -4105,12 +4137,13 @@ void updateFlightBehaviorModifiers(void)
 
 /* On the fly WP mission planner mode allows WP missions to be setup during navigation.
  * Uses the WP mode switch to save WP at current location (WP mode disabled when active)
- * Mission can be flown after mission planner mode switched off and saved after disarm. */
-
+ * Mission can be flown after mission planner mode switched off and saved after disarm. 
+ * 更新任务规划器的一些状态，只是状态
+ * */
 void updateWpMissionPlanner(void)
 {
     static timeMs_t resetTimerStart = 0;
-    if (IS_RC_MODE_ACTIVE(BOXPLANWPMISSION) && !(FLIGHT_MODE(NAV_WP_MODE) || isWaypointMissionRTHActive())) {
+    if (IS_RC_MODE_ACTIVE(BOXPLANWPMISSION) && !(FLIGHT_MODE(NAV_WP_MODE) || isWaypointMissionRTHActive())) { // 不处于RTH模式、NAV_WP_MODE没有启用、BOXPLANMISSION1
         const bool positionTrusted = posControl.flags.estAltStatus == EST_TRUSTED && posControl.flags.estPosStatus == EST_TRUSTED && STATE(GPS_FIX);
 
         posControl.flags.wpMissionPlannerActive = true;
@@ -4119,7 +4152,7 @@ void updateWpMissionPlanner(void)
             posControl.waypointListValid = false;
             posControl.wpMissionPlannerStatus = WP_PLAN_WAIT;
         }
-        if (positionTrusted && posControl.wpMissionPlannerStatus != WP_PLAN_FULL) {
+        if (positionTrusted && posControl.wpMissionPlannerStatus != WP_PLAN_FULL) { // missionPlannerSetWaypoint何时被触发，关系到对航点导航的理解。
             missionPlannerSetWaypoint();
         } else {
             posControl.wpMissionPlannerStatus = posControl.wpMissionPlannerStatus == WP_PLAN_FULL ? WP_PLAN_FULL : WP_PLAN_WAIT;
@@ -4130,7 +4163,10 @@ void updateWpMissionPlanner(void)
         resetTimerStart = millis();
     }
 }
-
+/**
+ * 将无人机当前位置(LLH)设置为活动航点(active),这个活动是指“可移动”还是“激活的”？
+ * 每调用一次，wpPlannerActiveWPIndex都会加1
+ */
 void missionPlannerSetWaypoint(void)
 {
     static bool boxWPModeIsReset = true;
@@ -4158,19 +4194,20 @@ void missionPlannerSetWaypoint(void)
     posControl.waypointList[posControl.wpPlannerActiveWPIndex].flag = NAV_WP_FLAG_LAST;
     posControl.waypointListValid = true;
 
-    if (posControl.wpPlannerActiveWPIndex) {
+    if (posControl.wpPlannerActiveWPIndex) { // 如果不是初始航点，则将上一个航点的flag设置为0
         posControl.waypointList[posControl.wpPlannerActiveWPIndex - 1].flag = 0; // rollling reset of previous end of mission flag when new WP added
     }
 
     posControl.wpPlannerActiveWPIndex += 1;
     posControl.waypointCount = posControl.geoWaypointCount = posControl.wpPlannerActiveWPIndex;
-    posControl.wpMissionPlannerStatus = posControl.waypointCount == NAV_MAX_WAYPOINTS ? WP_PLAN_FULL : WP_PLAN_OK;
+    posControl.wpMissionPlannerStatus = posControl.waypointCount == NAV_MAX_WAYPOINTS ? WP_PLAN_FULL : WP_PLAN_OK; // 这句如何理解？
     boxWPModeIsReset = false;
 }
 
 /**
  * Process NAV mode transition and WP/RTH state machine
- *  Update rate: RX (data driven or 50Hz)
+ * Update rate: RX (data driven or 50Hz)
+ * 由状态机驱动的
  */
 void updateWaypointsAndNavigationMode(void)
 {
@@ -4183,10 +4220,10 @@ void updateWaypointsAndNavigationMode(void)
     /* Update NAV ready status */
     updateReadyStatus();
 
-    // Update flight behaviour modifiers
+    // Update flight behaviour modifiers 
     updateFlightBehaviorModifiers();
 
-    // Process switch to a different navigation mode (if needed)
+    // Process switch to a different navigation mode (if needed) //当遥控器发出模式切换指令时，通过这一函数切换当前飞控模式，处理状态机中的状态转移
     navProcessFSMEvents(selectNavEventFromBoxModeInput());
 
     // Process pilot's RC input to adjust behaviour

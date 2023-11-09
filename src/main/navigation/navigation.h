@@ -366,6 +366,9 @@ typedef enum {
     NAV_WP_USER4 = (1<<4)
 } navWaypointP3Flags_e;
 
+/**
+ * 以经纬度方式存放的信息
+ */
 typedef struct {
     int32_t lat;
     int32_t lon;
@@ -397,6 +400,8 @@ typedef struct radar_pois_s {
 extern radar_pois_t radar_pois[RADAR_MAX_POIS];
 
 typedef struct {
+    /* heading refers to the direction of movement or facing, 
+    while bearing refers to the direction of an object or point relative to another object or point.  */
     fpVector3_t pos;
     int32_t     heading;            // centidegrees
     int32_t     bearing;            // centidegrees
@@ -566,9 +571,6 @@ bool geoConvertGeodeticToLocal(fpVector3_t *pos, const gpsOrigin_t *origin, cons
 // geoConvertGeodeticToLocalOrigin calls geoConvertGeodeticToLocal with the
 // default GPS origin.
 bool geoConvertGeodeticToLocalOrigin(fpVector3_t * pos, const gpsLocation_t *llh, geoAltitudeConversionMode_e altConv);
-// geoConvertLocalToGeodetic converts a local point as provided in pos to
-// geodetic coordinates using the provided GPS origin. It returns wether
-// the provided origin is valid and the conversion could be performed.
 bool geoConvertLocalToGeodetic(gpsLocation_t *llh, const gpsOrigin_t *origin, const fpVector3_t *pos);
 float geoCalculateMagDeclination(const gpsLocation_t * llh); // degrees units
 // Select absolute or relative altitude based on WP mission flag setting

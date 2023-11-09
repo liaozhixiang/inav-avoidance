@@ -59,6 +59,7 @@ typedef enum {
     NAV_POS_UPDATE_BEARING_TAIL_FIRST   = 1 << 4,
 } navSetWaypointFlags_t;
 
+/* 定义爬升率转换成高度这个控制器的模式 */
 typedef enum {
     ROC_TO_ALT_RESET,
     ROC_TO_ALT_CONSTANT,
@@ -89,7 +90,7 @@ typedef struct navigationFlags_s {
     navigationEstimateStatus_e estAltStatus;        // Indicates that we have a working altitude sensor (got at least one valid reading from it)
     navigationEstimateStatus_e estPosStatus;        // Indicates that GPS is working (or not)
     navigationEstimateStatus_e estVelStatus;        // Indicates that GPS is working (or not)
-    navigationEstimateStatus_e estAglStatus;
+    navigationEstimateStatus_e estAglStatus;        // surface altitude sensors is working
     navigationEstimateStatus_e estHeadingStatus;    // Indicate valid heading - wither mag or GPS at certain speed on airplane
     bool gpsCfEstimatedAltitudeMismatch;            // Indicates a mismatch between GPS altitude and estimated altitude
 
@@ -235,6 +236,7 @@ typedef enum {
     NAV_PERSISTENT_ID_MIXERAT_ABORT                             = 41,
 } navigationPersistentId_e;
 
+//航点导航入口
 typedef enum {
     NAV_STATE_UNDEFINED = 0,
 
@@ -315,7 +317,7 @@ typedef enum {
     NAV_AUTO_WP_DONE        = (1 << 15),    //Waypoint mission reached the last waypoint and is idling
 
     NAV_MIXERAT             = (1 << 16),    //MIXERAT in progress
-} navigationFSMStateFlags_t;
+} navigationFSMStateFlags_t; //有限状态机中的状态
 
 typedef struct {
     navigationPersistentId_e            persistentId;
@@ -402,6 +404,7 @@ typedef struct {
     navCruise_t                 cruise;
 
     /* Waypoint list */
+    /* 以经纬度方式存放 */
     navWaypoint_t               waypointList[NAV_MAX_WAYPOINTS];
     bool                        waypointListValid;
     int8_t                      waypointCount;              // number of WPs in loaded mission
@@ -418,7 +421,7 @@ typedef struct {
     int8_t                      loadedMultiMissionIndex;    // index of selected multi mission
     int8_t                      totalMultiMissionWpCount;   // total number of waypoints in all multi missions
 #endif
-    navWaypointPosition_t       activeWaypoint;             // Local position, current bearing and turn angle to next WP, filled on waypoint activation
+    navWaypointPosition_t       activeWaypoint;             // Local position, current bearing and turn angle to next WP, filled on waypoint activation, NEU坐标表示
     int8_t                      activeWaypointIndex;
     float                       wpInitialAltitude;          // Altitude at start of WP
     float                       wpInitialDistance;          // Distance when starting flight to WP

@@ -67,6 +67,8 @@ Connect SWDIO and SWCLK from the FC to pins with the same label on the ST Link. 
 also connect one of the GND from FC to any of the GND pins to the ST Link. Note the
 following caveats:
 
+注意要共地
+
 - There are several ST Link clone types with different pinouts. Pay attention to the pin
 labels.
 - In some ST Link clones, some GND pins are actually floating and not connected to
@@ -79,9 +81,17 @@ The FC can be powered by any power source that it supports (battery, USB, etc...
 make sure to not connect power from the ST Link (the pins labelled as 3.3V and 5V) to the
 FC if something else is powering it.
 
+当飞控被其他电源驱动时不要将调试器的电源线连接到飞控上
+
 Once you're wired everything, test the connections with a DMM before applying power. Then
 power both the FC and the stlink (the order doesn't matter) and run `st-info --probe`
 You should see something like:
+
+常用stlink指令
+st-flash erase
+st-flash reset
+st-info --probe
+st-flash read out.bin 0x8000000 0x40000
 
 ```
 Found 1 stlink programmers
@@ -101,6 +111,8 @@ optimizations like inlining and LTO might rearrange some sections of the code en
 to interfere with debugging. All compile time optimizations can be disabled by
 using `DEBUG=GDB` when calling `make`.
 
+在调用 make 时，可以使用 DEBUG = GDB 禁用所有编译时优化，防止一些优化后的代码影响调试
+
 You may find that if you compile all the files without optimizations the program might
 too big to fit on the target device. In that case, one of the possible solutions is
 compiling all files with optimization (`make clean`, `make ...`) first, then re-save
@@ -112,18 +124,26 @@ This will then re-compile the files you're interested in debugging with debuggin
 To run a debug session, you will need two terminal windows. One will run OpenOCD, while
 the other one will run gdb.
 
+启动debug功能需要两个终端，一个用于运行OpenOCD,另一个用于运行GDB
+
 Although not strictly required, it is recommended to set the target you're working on
 in `make/local.mk` (create it if it doesn't exist), by adding a line like e.g.
 `TARGET ?= SOME_VALID_TARGET`. This way you won't need to specify the target name in
 all commands.
 
+在make文件夹中添加一行语句，这样不用每次都指明飞控型号
+
 From one of the terminals, type `make openocd-run`. This will start OpenOCD and connect
 to the MCU. Leave OpenOCD running in this terminal.
+
+启动OpenOCD
 
 From another terminal, type `make gdb-openocd`. This will compile the `.elf` binary for
 the current target and start `gdb`. From there you will usually want to execute the gdb
 `load` command first, which will flash the binary to the target. Once it finishes, start
 running it by executing the `continue` command.
+
+启动debug
 
 For conveniency, you can invoke `make gdb-openocd` with the environment variable `$LOAD`
 set to a non-empty string (e.g. `LOAD=1 make gdb-openocd`), which will run the `load`
@@ -141,6 +161,7 @@ gdb command `monitor reset halt` and then type `load` to flash it. gdb will noti
 binary has changed and re-read the debug symbols. Then you can restart the firmware with
 `continue`. This way, you can very quickly flash, upload and test since neither OpenOCD
 nor gdb need to be restarted.
+在不重启openocd和dbg的情况下重新编译和装载修改过后的文件
 
 ### ST Link versions
 

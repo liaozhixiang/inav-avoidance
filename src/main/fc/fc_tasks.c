@@ -53,6 +53,7 @@
 #include "flight/wind_estimator.h"
 
 #include "navigation/navigation.h"
+#include "navigation/navigation_planner.h"
 
 #include "io/beeper.h"
 #include "io/lights.h"
@@ -404,6 +405,7 @@ void fcTasksInit(void)
 #if defined(USE_SMARTPORT_MASTER)
     setTaskEnabled(TASK_SMARTPORT_MASTER, true);
 #endif
+    setTaskEnabled(TASK_PLANNER, true);
 }
 
 cfTask_t cfTasks[TASK_COUNT] = {
@@ -644,6 +646,13 @@ cfTask_t cfTasks[TASK_COUNT] = {
         .taskName = "AUX",
         .taskFunc = taskUpdateAux,
         .desiredPeriod = TASK_PERIOD_HZ(TASK_AUX_RATE_HZ),          // 100Hz @10ms
+        .staticPriority = TASK_PRIORITY_HIGH,
+    },
+
+    [TASK_PLANNER] = {
+        .taskName = "PLANNER",
+        .taskFunc = taskUpdatePlannerWayPoint,
+        .desiredPeriod = TASK_PERIOD_HZ(4),          // 5Hz @250ms
         .staticPriority = TASK_PRIORITY_HIGH,
     },
 };

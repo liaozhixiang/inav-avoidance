@@ -140,11 +140,18 @@ bool geoConvertGeodeticToLocal(fpVector3_t *pos, const gpsOrigin_t *origin, cons
     return false;
 }
 
+/* 将大地转换为本地坐标。输入gps位置、gps原点位置、相对于原点的NED位置 */
 bool geoConvertGeodeticToLocalOrigin(fpVector3_t * pos, const gpsLocation_t *llh, geoAltitudeConversionMode_e altConv)
 {
     return geoConvertGeodeticToLocal(pos, &posControl.gpsOrigin, llh, altConv);
 }
 
+/**
+ * geoConvertLocalToGeodetic converts a local point as provided in pos to
+ * geodetic coordinates using the provided GPS origin. It returns wether
+ * the provided origin is valid and the conversion could be performed.
+ * 将本地坐标转换为大地坐标。将gps原点位置转换为相对于原点的NED位置转换为gps位置
+ **/
 bool geoConvertLocalToGeodetic(gpsLocation_t *llh, const gpsOrigin_t * origin, const fpVector3_t *pos)
 {
     float scaleLonDown;
