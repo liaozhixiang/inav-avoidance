@@ -37,5 +37,31 @@
                 "cwd": "${workspaceFolder}/build"
             }
         }
+        ,
+        {
+            "label": "flash",
+            "type": "shell",
+            "command": "make", "args":  ["-C", "${config:BUILD_DIR}", "openocd_flash_${config:TARGET}"],
+            "dependsOn": "elf"
+        },
+        {
+            "label": "svd",
+            "type": "shell",
+            "command": "make", "args":  ["-C", "${config:BUILD_DIR}", "svd_${config:TARGET}"],
+            "problemMatcher": []
+        },
+        {
+            "label": "openocd-cfg",
+            "type": "shell",
+            "command": "make", "args":  ["-C", "${config:BUILD_DIR}", "openocd_cfg_${config:TARGET}"],
+            "problemMatcher": []
+        },
+        {
+            "label": "openocd-debug-prepare",
+            "type": "shell",
+//            "dependsOn": ["svd", "openocd-cfg", "flash"],
+            "dependsOn": ["svd", "openocd-cfg"],
+            "problemMatcher": []
+        }
     ]
 }

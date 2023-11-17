@@ -176,7 +176,7 @@ static bool sbusInitEx(const rxConfig_t *rxConfig, rxRuntimeConfig_t *rxRuntimeC
 
     serialPort_t *sBusPort = openSerialPort(portConfig->identifier,
         FUNCTION_RX_SERIAL,
-        sbusDataReceive,
+        sbusDataReceive, //可以省略&取地址符号
         &sbusFrameData,
         sbusBaudRate,
         portShared ? MODE_RXTX : MODE_RX,

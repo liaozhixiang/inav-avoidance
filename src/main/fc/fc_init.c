@@ -127,6 +127,7 @@
 #include "msp/msp_serial.h"
 
 #include "navigation/navigation.h"
+#include "navigation/navigation_planner.h"
 
 #include "rx/rx.h"
 #include "rx/spektrum.h"
@@ -714,6 +715,7 @@ void init(void)
 #ifdef USE_POWER_LIMITS
     powerLimiterInit();
 #endif
+    plannerInit();
 
 #if !defined(SITL_BUILD)
     // Considering that the persistent reset reason is only used during init

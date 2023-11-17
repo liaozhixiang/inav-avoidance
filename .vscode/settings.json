@@ -4,12 +4,28 @@
         "cmath": "c",
         "ranges": "c",
         "stdint.h": "c",
-        "scheduler.h": "c"
+        "scheduler.h": "c",
+        "gps.h": "c",
+        "feature.h": "c",
+        "opflow_virtual.h": "c",
+        "type_traits": "c",
+        "navigation_planner.h": "c",
+        "navigation.h": "c",
+        "build_config.h": "c",
+        "axis.h": "c",
+        "ctype.h": "c",
+        "serial_uart.h": "c",
+        "serial.h": "c"
     },
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
     "editor.detectIndentation": false,
     "editor.expandTabs": true,
     "C_Cpp.clang_format_fallbackStyle": "{ BasedOnStyle: Google, IndentWidth: 4,  BreakBeforeBraces: Mozilla }",
-    "cmake.configureOnOpen": false
+    "cmake.configureOnOpen": false,
+
+    "BUILD_DIR": "build",
+    "TARGET": "SPEEDYBEEF405V3",
+    "cortex-debug.variableUseNaturalFormat": true,
+
 }

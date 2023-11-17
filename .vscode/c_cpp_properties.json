@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceRoot}/src/main/**",
                 "${workspaceRoot}/lib/main/**",
-                "/usr/include/**"
+                "/usr/include/**",
+                "${workspaceFolder}/src/main"
             ],
             "browse": {
                 "limitSymbolsToIncludedHeaders": false,
