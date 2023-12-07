@@ -400,6 +400,7 @@ float getAxisIterm(uint8_t axis)
     return pidState[axis].errorGyroIf;
 }
 
+/* 将-500 - 500间的摇杆输入量映射到maxInclination形成的某个限制区间内，完成了从摇杆输入量到摇杆表示的姿态角的转变(角度模式) */
 static float pidRcCommandToAngle(int16_t stick, int16_t maxInclination)
 {
     stick = constrain(stick, -500, 500);
@@ -423,6 +424,7 @@ float pidRateToRcCommand(float rateDPS, uint8_t rate)
     return scaleRangef(rateDPS, -maxRateDPS, maxRateDPS, -500.0f, 500.0f);
 }
 
+/* 将-500 - 500间的摇杆输入量映射到rate形成的某个限制区间内，完成了从摇杆输入量到摇杆表示的姿态角速度的转变(角速度模式) */
 float pidRcCommandToRate(int16_t stick, uint8_t rate)
 {
     const float maxRateDPS = rate * 10.0f;
@@ -550,13 +552,14 @@ void updatePIDCoefficients(void)
     pidGainsUpdateRequired = false;
 }
 
+// 通过滚转和俯仰的摇杆量大小计算了一个叫做horizonRateMagnitude(?)的值，这个值在0-1之间
 static float calcHorizonRateMagnitude(void)
 {
     // Figure out the raw stick positions
     const int32_t stickPosAil = ABS(getRcStickDeflection(FD_ROLL));
     const int32_t stickPosEle = ABS(getRcStickDeflection(FD_PITCH));
-    const float mostDeflectedStickPos = constrain(MAX(stickPosAil, stickPosEle), 0, 500) / 500.0f;
-    const float modeTransitionStickPos = constrain(pidBank()->pid[PID_LEVEL].D, 0, 100) / 100.0f;
+    const float mostDeflectedStickPos = constrain(MAX(stickPosAil, stickPosEle), 0, 500) / 500.0f; //转换到0-1之间
+    const float modeTransitionStickPos = constrain(pidBank()->pid[PID_LEVEL].D, 0, 100) / 100.0f;  //为什么要储存微分D？
 
     float horizonRateMagnitude;
 
@@ -582,6 +585,7 @@ int16_t angleFreefloatDeadband(int16_t deadband, flight_dynamics_index_t axis)
     }
 }
 
+// 将rcCommand转换为角度，注意rcCommand可能在前面的函数中修改过
 static float computePidLevelTarget(flight_dynamics_index_t axis) {
     // This is ROLL/PITCH, run ANGLE/HORIZON controllers
     float angleTarget = pidRcCommandToAngle(rcCommand[axis], pidProfile()->max_angle_inclination[axis]);
@@ -618,6 +622,7 @@ static void pidLevel(const float angleTarget, pidState_t *pidState, flight_dynam
     float angleErrorDeg = DECIDEGREES_TO_DEGREES(angleTarget - attitude.raw[axis]);
 
     // Soaring mode deadband inactive if pitch/roll stick not centered to allow RC stick adjustment
+    //只针对soaring mode的修改
     if (FLIGHT_MODE(SOARING_MODE) && axis == FD_PITCH && calculateRollPitchCenterStatus() == CENTERED) {
         angleErrorDeg = DECIDEGREES_TO_DEGREES((float)angleFreefloatDeadband(DEGREES_TO_DECIDEGREES(navConfig()->fw.soaring_pitch_deadband), FD_PITCH));
         if (!angleErrorDeg) {
@@ -814,8 +819,8 @@ static void FAST_CODE NOINLINE pidApplyMulticopterRateController(pidState_t *pid
     const float rateTarget = getFlightAxisRateOverride(axis, pidState->rateTarget);
 
     const float rateError = rateTarget - pidState->gyroRate;
-    const float newPTerm = pTermProcess(pidState, rateError, dT);
-    const float newDTerm = dTermProcess(pidState, rateTarget, dT, dT_inv);
+    const float newPTerm = pTermProcess(pidState, rateError, dT);//计算误差得到P项
+    const float newDTerm = dTermProcess(pidState, rateTarget, dT, dT_inv);//计算误差得到D项
 
     const float rateTargetDelta = rateTarget - pidState->previousRateTarget;
     const float rateTargetDeltaFiltered = pt3FilterApply(&pidState->rateTargetFilter, rateTargetDelta);
@@ -840,7 +845,7 @@ static void FAST_CODE NOINLINE pidApplyMulticopterRateController(pidState_t *pid
 
     // Don't grow I-term if motors are at their limit
     applyItermLimiting(pidState);
-
+    //axisPID与后面的mixtable交互
     axisPID[axis] = newOutputLimited;
 
 #ifdef USE_BLACKBOX
@@ -876,7 +881,7 @@ static uint8_t getHeadingHoldState(void)
     if (calculateCosTiltAngle() < headingHoldCosZLimit) {
         return HEADING_HOLD_DISABLED;
     }
-
+    // 一些航向模式
     int navHeadingState = navigationGetHeadingControlState();
     // NAV will prevent MAG_MODE from activating, but require heading control
     if (navHeadingState != NAV_HEADING_CONTROL_NONE) {
@@ -1067,6 +1072,8 @@ void FAST_CODE pidController(float dT)
     }
 
     bool canUseFpvCameraMix = STATE(MULTIROTOR);
+
+    //这一段都是关于航向保持的设置
     uint8_t headingHoldState = getHeadingHoldState();
 
     // In case Yaw override is active, we engage the Heading Hold state
@@ -1097,6 +1104,7 @@ void FAST_CODE pidController(float dT)
         }
 
         // Limit desired rate to something gyro can measure reliably
+        // 将期望角速率限制在陀螺仪能够可靠测量的范围内
         pidState[axis].rateTarget = constrainf(rateTarget, -GYRO_SATURATION_LIMIT, +GYRO_SATURATION_LIMIT);
 
 #ifdef USE_GYRO_KALMAN
@@ -1114,6 +1122,7 @@ void FAST_CODE pidController(float dT)
     for (uint8_t axis = FD_ROLL; axis <= FD_PITCH; axis++) {
         if (FLIGHT_MODE(ANGLE_MODE) || FLIGHT_MODE(HORIZON_MODE) || isFlightAxisAngleOverrideActive(axis)) {
             //If axis angle override, get the correct angle from Logic Conditions
+            //要么得到axis对应的angleTarget，要么使用computePidLevelTarget计算出来的angleTarget
             float angleTarget = getFlightAxisAngleOverride(axis, computePidLevelTarget(axis));
 
             //Apply the Level PID controller
@@ -1144,7 +1153,7 @@ void FAST_CODE pidController(float dT)
         // Step 4: Run gyro-driven control
         checkItermLimitingActive(&pidState[axis]);
         checkItermFreezingActive(&pidState[axis], axis);
-
+        //这个函数将rateTarget转化成axisPID
         pidControllerApplyFn(&pidState[axis], axis, dT, dT_inv);
     }
 }

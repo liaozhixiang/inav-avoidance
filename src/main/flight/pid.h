@@ -90,6 +90,7 @@ typedef struct pid8_s {
     uint16_t FF;
 } pid8_t;
 
+//储存PID参数
 typedef struct pidBank_s {
     pid8_t  pid[PID_ITEM_COUNT];
 } pidBank_t;

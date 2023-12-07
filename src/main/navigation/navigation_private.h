@@ -454,7 +454,6 @@ PG_DECLARE_ARRAY(navWaypoint_t, NAV_MAX_WAYPOINTS, nonVolatileWaypointList);
 extern navigationPosControl_t posControl;
 extern multicopterPosXyCoefficients_t multicopterPosXyCoefficients;
 
-/* Internally used functions */
 const navEstimatedPosVel_t * navGetCurrentActualPositionAndVelocity(void);
 
 bool isThrustFacingDownwards(void);

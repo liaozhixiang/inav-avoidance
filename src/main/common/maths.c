@@ -144,12 +144,11 @@ int32_t applyDeadband(int32_t value, int32_t deadband)
     return value;
 }
 /**
- * 这段代码的作用是对输入的value进行死区处理和重新缩放。
- * 首先，代码会判断value的绝对值是否小于deadband。如果是，则将value设置为0，表示在死区范围内，不产生输出。
- * 接着，如果value大于0，则将value减去deadband，并将结果通过scaleRange函数重新缩放到0和max-deadband之间。这样做的目的是将value的范围从[deadband, max]重新映射到[0, max-deadband]。
- * 最后，如果value小于0，则将value加上deadband，并将结果通过scaleRange函数重新缩放到min+deadband和0之间。这样做的目的是将value的范围从[min, -deadband]重新映射到[min+deadband, 0]。
- * 最后，返回经过死区处理和重新缩放后的value。
-*/
+ * 对输入的value进行死区处理和重新缩放
+ * 首先，若value的绝对值小于deadband，则将value设置为0，表示在死区范围内，不产生输出。
+ * 接着，若value大于0，则将value减去deadband，通过scaleRange函数将value的范围从[deadband, max]重新映射到[0, max-deadband]。
+ * 最后，若value小于0，则将value加上deadband，通过scaleRange函数将value的范围从[min, -deadband]重新映射到[min+deadband, 0]。
+ */
 int32_t applyDeadbandRescaled(int32_t value, int32_t deadband, int32_t min, int32_t max)
 {
     if (ABS(value) < deadband) {
@@ -172,6 +171,7 @@ int32_t constrain(int32_t amt, int32_t low, int32_t high)
         return amt;
 }
 
+/* 对amt作限幅处理 */
 float constrainf(float amt, float low, float high)
 {
     if (amt < low)
@@ -216,12 +216,13 @@ float degreesToRadians(int16_t degrees)
     return degrees * RAD;
 }
 
+/* 将一个在源范围(srcMin到srcMax内的数值x映射到目标范围(destMin到destMax)内的一个新数值。 */
 int scaleRange(int x, int srcMin, int srcMax, int destMin, int destMax) {
     long int a = ((long int) destMax - (long int) destMin) * ((long int) x - (long int) srcMin);
     long int b = (long int) srcMax - (long int) srcMin;
     return ((a / b) + destMin);
 }
-/* 将一个给定范围内的值x进行线性映射到另一个给定范围内 */
+/* 将一个给定范围内的值x进行线性映射到另一个给定范围内，(x-srcMin)/(srcMax-srcMin) = (output-destMin)/(destMax-destMin) */
 float scaleRangef(float x, float srcMin, float srcMax, float destMin, float destMax) {
     float a = (destMax - destMin) * (x - srcMin);
     float b = srcMax - srcMin;

@@ -73,6 +73,7 @@
 #include "msp/msp_serial.h"
 
 #include "navigation/navigation.h"
+#include "navigation/navigation_planner.h"
 
 #include "rx/rx.h"
 #include "rx/msp.h"
@@ -173,7 +174,7 @@ bool areSensorsCalibrating(void)
 
     return false;
 }
-
+/* 对通道原始参数做一些调整，从1000 - 2000缩放到-500 - 500，以及死区、柔化等处理*/
 int16_t getAxisRcCommand(int16_t rawData, int16_t rate, int16_t deadband)
 {
     int16_t stickDeflection = 0;
@@ -382,6 +383,7 @@ static bool emergencyArmingIsEnabled(void)
 
 /**
  * 将遥控器信号输入转化为俯仰、滚转、航向三个指令，并做合适的处理
+ * 避障器的输入介入到这个模块
  */
 static void processPilotAndFailSafeActions(float dT)
 {
@@ -390,10 +392,18 @@ static void processPilotAndFailSafeActions(float dT)
         failsafeApplyControlInput();
     }
     else {
+        if (isAvoidActive()) {
+        //rccommand接收planner的指令
+        rcCommand[ROLL]  = getAxisRcCommand(plannerGetRcCommand(ROLL), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcExpo8 : currentControlRateProfile->stabilized.rcExpo8, rcControlsConfig()->deadband);
+        rcCommand[PITCH] = getAxisRcCommand(plannerGetRcCommand(PITCH), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcExpo8 : currentControlRateProfile->stabilized.rcExpo8, rcControlsConfig()->deadband);
+        rcCommand[YAW]   = -getAxisRcCommand(plannerGetRcCommand(YAW), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcYawExpo8 : currentControlRateProfile->stabilized.rcYawExpo8, rcControlsConfig()->yaw_deadband);
+        }
+        else {
         // Compute ROLL PITCH and YAW command
-        rcCommand[ROLL] = getAxisRcCommand(rxGetChannelValue(ROLL), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcExpo8 : currentControlRateProfile->stabilized.rcExpo8, rcControlsConfig()->deadband);
+        rcCommand[ROLL]  = getAxisRcCommand(rxGetChannelValue(ROLL), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcExpo8 : currentControlRateProfile->stabilized.rcExpo8, rcControlsConfig()->deadband);
         rcCommand[PITCH] = getAxisRcCommand(rxGetChannelValue(PITCH), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcExpo8 : currentControlRateProfile->stabilized.rcExpo8, rcControlsConfig()->deadband);
-        rcCommand[YAW] = -getAxisRcCommand(rxGetChannelValue(YAW), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcYawExpo8 : currentControlRateProfile->stabilized.rcYawExpo8, rcControlsConfig()->yaw_deadband);
+        rcCommand[YAW]   = -getAxisRcCommand(rxGetChannelValue(YAW), FLIGHT_MODE(MANUAL_MODE) ? currentControlRateProfile->manual.rcYawExpo8 : currentControlRateProfile->stabilized.rcYawExpo8, rcControlsConfig()->yaw_deadband);
+        }
 
         // Apply manual control rates
         if (FLIGHT_MODE(MANUAL_MODE)) {
@@ -839,6 +849,9 @@ void FAST_CODE taskGyro(timeUs_t currentTimeUs) {
 #endif
 }
 
+/**
+ * 猜测是在产生俯仰或者滚转时，适当提高油门，保持高度
+  */
 static void applyThrottleTiltCompensation(void)
 {
     if (STATE(MULTIROTOR)) {
@@ -891,7 +904,7 @@ void taskMainPidLoop(timeUs_t currentTimeUs)
 #if defined(SITL_BUILD)
     }
 #endif
-
+    //得到了rcCommand
     processPilotAndFailSafeActions(dT);
 
     updateArmingStatus();
@@ -909,7 +922,6 @@ void taskMainPidLoop(timeUs_t currentTimeUs)
     applyWaypointNavigationAndAltitudeHold();
 
     // Apply throttle tilt compensation
-    //什么是油门补偿
     applyThrottleTiltCompensation();
 
 #ifdef USE_POWER_LIMITS

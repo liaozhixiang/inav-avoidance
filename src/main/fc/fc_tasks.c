@@ -654,7 +654,7 @@ cfTask_t cfTasks[TASK_COUNT] = {
     [TASK_PLANNER] = {
         .taskName = "PLANNER",
         .taskFunc = plannerDataUnpack,
-        .desiredPeriod = TASK_PERIOD_HZ(1),          // 1Hz @1000ms
+        .desiredPeriod = TASK_PERIOD_HZ(10),          // 10Hz @100ms
         .staticPriority = TASK_PRIORITY_LOW,
     },
 };

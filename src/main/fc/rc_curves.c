@@ -53,6 +53,7 @@ void generateThrottleCurve(const controlRateConfig_t *controlRateConfig)
     }
 }
 
+/* 线性转化成指数增长形式，使得在摇杆偏转角度较小时控制更加细腻 */
 int16_t rcLookup(int32_t stickDeflection, uint8_t expo)
 {
     float tmpf = stickDeflection / 100.0f;

@@ -285,6 +285,7 @@ static void applyMulticopterAltitudeController(timeUs_t currentTimeUs)
 
 /*-----------------------------------------------------------
  * Adjusts desired heading from pilot's input
+ * 输入大于死区，且不在航迹保持中，就将期望航向设为当前航向
  *-----------------------------------------------------------*/
 bool adjustMulticopterHeadingFromRCInput(void)
 {
@@ -409,7 +410,9 @@ void resetMulticopterPositionController(void)
         lastAccelTargetY = 0.0f;
     }
 }
-
+/**
+ * 将rcPitchAdjustment映射到巡航速度上，调整posControl.cruise.multicopterSpeed
+ */
 static bool adjustMulticopterCruiseSpeed(int16_t rcPitchAdjustment)
 {
     static timeMs_t lastUpdateTimeMs;
@@ -417,15 +420,17 @@ static bool adjustMulticopterCruiseSpeed(int16_t rcPitchAdjustment)
     const timeMs_t updateDeltaTimeMs = currentTimeMs - lastUpdateTimeMs;
     lastUpdateTimeMs = currentTimeMs;
 
-    const float rcVelX = rcPitchAdjustment * navConfig()->general.max_manual_speed / (float)(500 - rcControlsConfig()->pos_hold_deadband);
+    const float rcVelX = rcPitchAdjustment * navConfig()->general.max_manual_speed / (float)(500 - rcControlsConfig()->pos_hold_deadband);//rcPitchAdjustment/(500-deadband）的比值在-1-1之间，比例系数
 
     if (rcVelX > posControl.cruise.multicopterSpeed) {
         posControl.cruise.multicopterSpeed = rcVelX;
     } else if (rcVelX < 0 && updateDeltaTimeMs < 100) {
-        posControl.cruise.multicopterSpeed += MS2S(updateDeltaTimeMs) * rcVelX / 2.0f;
+        posControl.cruise.multicopterSpeed += MS2S(updateDeltaTimeMs) * rcVelX / 2.0f; //使得速度逐渐增加
     } else {
-        return false;
+        return false;//如果据上次更新时间超过100ms，就认为结果可靠，返回false
     }
+
+    // 限制速度，最低巡航速度都10m/s了？
     posControl.cruise.multicopterSpeed = constrainf(posControl.cruise.multicopterSpeed, 10.0f, navConfig()->general.max_manual_speed);
 
     return true;
@@ -437,23 +442,29 @@ static void setMulticopterStopPosition(void)
     calculateMulticopterInitialHoldPosition(&stopPosition);
     setDesiredPosition(&stopPosition, 0, NAV_POS_UPDATE_XY);
 }
-
+/**
+ * 若是cruise hold或gps cruise模式，做相应处理，或改变期望速度、或改变期望位置
+ * 手动控制的更改不在这里处理
+ * 只要有控制量就会返回true，其他情况（处于course hold模式但没有输入、控制器没有输入）返回false
+ */
 bool adjustMulticopterPositionFromRCInput(int16_t rcPitchAdjustment, int16_t rcRollAdjustment)
 {
-    if (navGetMappedFlightModes(posControl.navState) & NAV_COURSE_HOLD_MODE) {
+    //先处理Cruise Mode
+    if (navGetMappedFlightModes(posControl.navState) & NAV_COURSE_HOLD_MODE) { //如果当前飞行模式中包含CRUISEmode
         if (rcPitchAdjustment) {
             return adjustMulticopterCruiseSpeed(rcPitchAdjustment);
         }
-
         return false;
     }
 
-    // Process braking mode
+    //处理 braking mode，这个地方还没有仔细看
     processMulticopterBrakingMode(rcPitchAdjustment || rcRollAdjustment);
 
     // Actually change position
     if (rcPitchAdjustment || rcRollAdjustment) {
         // If mode is GPS_CRUISE, move target position, otherwise POS controller will passthru the RC input to ANGLE PID
+        // 如果是GPS_CRUISE模式，就移动目标位置，否则POS控制器会将RC输入直接传递给ANGLE PID
+        //rcVel转neuVel，再转desiredState.pos，这个pos应该是neu坐标
         if (navConfig()->general.flags.user_control_mode == NAV_GPS_CRUISE) {
             const float rcVelX = rcPitchAdjustment * navConfig()->general.max_manual_speed / (float)(500 - rcControlsConfig()->pos_hold_deadband);
             const float rcVelY = rcRollAdjustment * navConfig()->general.max_manual_speed / (float)(500 - rcControlsConfig()->pos_hold_deadband);
@@ -469,6 +480,7 @@ bool adjustMulticopterPositionFromRCInput(int16_t rcPitchAdjustment, int16_t rcR
 
         return true;
     }
+    // 如果没有输入，就让无人机停在当前位置
     else if (posControl.flags.isAdjustingPosition) {
         // Adjusting finished - reset desired position to stay exactly where pilot released the stick
         setMulticopterStopPosition();
@@ -501,6 +513,9 @@ static float getVelocityExpoAttenuationFactor(float velTotal, float velMax)
     return 1.0f - posControl.posResponseExpo * (1.0f - (velScale * velScale));  // x^3 expo factor
 }
 
+/**
+ * 主要将期望位置转换为期望速度，中间有一些判断和缩放过程，最后的出的结果是desiredState.vel,nue坐标系下
+ */
 static void updatePositionVelocityController_MC(const float maxSpeed)
 {
     if (FLIGHT_MODE(NAV_COURSE_HOLD_MODE)) {
@@ -572,6 +587,9 @@ static float computeVelocityScale(
     return constrainf(scale, 0, attenuationFactor);
 }
 
+/**
+ * 将期望速度转化为期望加速度，而期望加速度与期望姿态角成直接数学关系，然后期望姿态角的输入可以视作遥控器控制量，所以最后给出了rcAdjustment，类似与rcCommand，（-500 - 500之间的值）
+ */
 static void updatePositionAccelController_MC(timeDelta_t deltaMicros, float maxAccelLimit, const float maxSpeed)
 {
     const float measurementX = navGetCurrentActualPositionAndVelocity()->vel.x;
@@ -733,11 +751,13 @@ static void applyMulticopterPositionController(timeUs_t currentTimeUs)
         const timeDeltaLarge_t deltaMicrosPositionUpdate = currentTimeUs - previousTimePositionUpdate;
         previousTimePositionUpdate = currentTimeUs;
 
+        //如果是手动操控模式，rcCommand不会被改变，直接返回，所谓bypass
         if (bypassPositionController) {
             return;
         }
 
         // If we have new position data - update velocity and acceleration controllers
+        // 在航点导航模式下会在这里
         if (deltaMicrosPositionUpdate < MAX_POSITION_UPDATE_INTERVAL_US) {
             // Get max speed for current NAV mode
             float maxSpeed = getActiveSpeed();
@@ -755,6 +775,7 @@ static void applyMulticopterPositionController(timeUs_t currentTimeUs)
         return;
     }
 
+    //rcAdjustment又一次转化为rcCommand，用于后面的PID和mixTable模块
     rcCommand[PITCH] = pidAngleToRcCommand(posControl.rcAdjustment[PITCH], pidProfile()->max_angle_inclination[FD_PITCH]);
     rcCommand[ROLL] = pidAngleToRcCommand(posControl.rcAdjustment[ROLL], pidProfile()->max_angle_inclination[FD_ROLL]);
 }

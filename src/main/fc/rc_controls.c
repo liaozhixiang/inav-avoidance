@@ -377,6 +377,7 @@ void processRcStickPositions(bool isThrottleLow)
     }
 }
 
+// 获得摇杆的偏转量，0-500之间
 int32_t getRcStickDeflection(int32_t axis) {
     return MIN(ABS(rxGetChannelValue(axis) - PWM_RANGE_MIDDLE), 500);
 }

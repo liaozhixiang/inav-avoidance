@@ -364,9 +364,12 @@ static void calculateVirtualPositionTarget_FW(float trackingPeriod)
     }
 }
 
+/**
+ * 由于固定翼的位置是靠协调转弯实现的，所以代码比较简单
+  */
 bool adjustFixedWingPositionFromRCInput(void)
 {
-    int16_t rcRollAdjustment = applyDeadbandRescaled(rcCommand[ROLL], rcControlsConfig()->pos_hold_deadband, -500, 500);
+    int16_t rcRollAdjustment = applyDeadbandRescaled(rcCommand[ROLL], rcControlsConfig()->pos_hold_deadband, -500, 500);//得到的结果仍然为-500~500的数值，rcRollAdjustment
     return (rcRollAdjustment);
 }
 
