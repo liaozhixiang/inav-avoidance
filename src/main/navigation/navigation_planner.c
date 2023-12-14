@@ -12,6 +12,7 @@
 #include "io/serial.h"
 #include "drivers/serial_uart.h"
 #include "drivers/time.h"
+#include "fc/rc_modes.h"
 #include "fc/rc_controls.h"
 #include "navigation_planner.h"
 
@@ -29,9 +30,9 @@ typedef enum {
 } PlannerUsartReceiveState_e;
 
 static PlannerUsartReceiveState_e state = WAIT_START;
-volatile uint8_t plannerRecieveBuffer[PLANNER_FRAME_SIZE];
+static uint8_t plannerRecieveBuffer[PLANNER_FRAME_SIZE];
 static uint8_t bufferIndex = 0;
-static timeUs_t latestRecieveTime = 0;
+static timeMs_t latestRecieveTime = 0;
 static uint16_t plannerCommand[3];
 static bool plannerCommandValidity = false;
 
@@ -71,14 +72,14 @@ void plannerDataUnpack(timeUs_t currentTimeUs)
         uint8_t  recieveBuffer[PLANNER_FRAME_SIZE];
         uint16_t command[PLANNER_FRAME_SIZE / 2];
     } plannerInput;
-    memcpy(&plannerInput, &plannerRecieveBuffer, PLANNER_FRAME_SIZE);
+    memcpy(plannerInput.recieveBuffer, plannerRecieveBuffer, PLANNER_FRAME_SIZE);
 
-    bool updated = (currentTimeUs - latestRecieveTime < 1000000)? true : false;
-    UNUSED(updated);
+    timeMs_t currentTimeMs = currentTimeUs / 1000;
+    bool updated = (currentTimeMs - latestRecieveTime < 1000) ? true : false;
 
     bool checkSumValid = false;
-    uint16_t checkSum = 0;                      //即便recieveBuffer都为0也不会干扰判断
-    for (uint8_t i = 1; i < 4; i++) {
+    uint16_t checkSum = 0;
+    for (uint8_t i = 0; i < PLANNER_FRAME_SIZE/2 - 2; i++) {
         checkSum += plannerInput.command[i];
     }
     checkSum = ~checkSum;
@@ -86,16 +87,20 @@ void plannerDataUnpack(timeUs_t currentTimeUs)
 
     bool commandNotEmpty = (plannerInput.command[1] != 1500) || (plannerInput.command[2] != 1500) || (plannerInput.command[3] != 1500);
 
-    bool commandValueRational = isNumInRange(plannerInput.command[1],1000,2000) && isNumInRange(plannerInput.command[2],1000,2000) && isNumInRange(plannerInput.command[3],1000,2000);
-    
-    if (checkSumValid && commandNotEmpty && commandValueRational) {
+    bool avoidActive = IS_RC_MODE_ACTIVE(BOXUSER3) ? true : false;
+
+     
+    if (updated && checkSumValid && commandNotEmpty && avoidActive) {
+        plannerCommandValidity = true;
         plannerCommand[0] = plannerInput.command[1];
         plannerCommand[1] = plannerInput.command[2];
         plannerCommand[2] = plannerInput.command[3];
-        plannerCommandValidity = true;
     }
     else {
         plannerCommandValidity = false;
+        plannerCommand[0] = 1500;
+        plannerCommand[1] = 1500;
+        plannerCommand[2] = 1500;
     }
 }
 
@@ -121,16 +126,14 @@ int16_t plannerGetRcCommand(rc_alias_e axis)
 // Receive ISR callback
 void plannerDataRecieve(uint16_t byte, void *data)
 {
+    UNUSED(data);
     plannerRecieveBuffer[bufferIndex++] = byte;
-    if (bufferIndex >= PLANNER_FRAME_SIZE) {
-        bufferIndex = 0;
-        state = WAIT_START;
-    }
 
     switch (state) {
         case WAIT_START:
             if (byte == FRAME_START_1) {
-                state = START_STANDBY;   
+                state = START_STANDBY; 
+                  
             }
             else{
                 state = WAIT_START;
@@ -158,11 +161,21 @@ void plannerDataRecieve(uint16_t byte, void *data)
             if (byte == FRAME_END_2) {
                 state = WAIT_START;
                 bufferIndex = 0;
-                latestRecieveTime = micros();
-                
-            } else {
+                latestRecieveTime = millis();
+            } 
+            else {
                 state = IN_FRAME;
             }
             break;
+        
+        default:
+            state = WAIT_START;
+            bufferIndex = 0;
+            break;
+    }
+
+    if (bufferIndex >= PLANNER_FRAME_SIZE) {
+        state = WAIT_START;
+        bufferIndex = 0;
     }
 }

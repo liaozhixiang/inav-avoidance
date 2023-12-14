@@ -21,7 +21,8 @@
         "variant": "c",
         "stddef.h": "c",
         "rc_controls.h": "c",
-        "time.h": "c"
+        "time.h": "c",
+        "stdbool.h": "c"
     },
     "editor.tabSize": 4,
     "editor.insertSpaces": true,
@@ -32,6 +33,6 @@
 
     "BUILD_DIR": "build",
     "TARGET": "SPEEDYBEEF405V3",
-    "cortex-debug.variableUseNaturalFormat": false,
+    "cortex-debug.variableUseNaturalFormat": true,
 
 }

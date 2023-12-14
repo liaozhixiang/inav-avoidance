@@ -4,64 +4,44 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Matek F722-SE",
+            "label": "Build SPEEDYBEEF405V3",
             "type": "shell",
-            "command": "make MATEKF722SE",
+            "command": "make -j SPEEDYBEEF405V3",
             "group": "build",
             "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build"
-            }
         },
+
         {
-            "label": "Build Matek F722",
+            "label": "start",
             "type": "shell",
-            "command": "make MATEKF722",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "command": "openocd",
+            "args": [
+                "-f",
+                "${workspaceFolder}/build/openocd/jlink-swd.cfg",
+                "-f",
+                "${workspaceFolder}/build/openocd/stm32f4x.cfg",
+            ],
+            "group": "none",
             "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build"
-            }
-        }
-        ,
+        },
+
         {
-            "label": "CMAKE Update",
+            "label": "telnet",
             "type": "shell",
-            "command": "cmake ..",
+            "command": "telnet localhost 4444",
+            "group": "none",
+            "problemMatcher": [],
+            "dependsOn": [],
+        },
+
+        {
+            "label": "Openocd flash",
+            "type": "shell",
+            "command": "",
             "group": "build",
             "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build"
-            }
-        }
-        ,
-        {
-            "label": "flash",
-            "type": "shell",
-            "command": "make", "args":  ["-C", "${config:BUILD_DIR}", "openocd_flash_${config:TARGET}"],
-            "dependsOn": "elf"
+            "dependsOn": ["Openocd start", "Openocd telnet"],
+            //program /home/solaris/codes/inav/build/inav_6.1.1_SPEEDYBEEF405V3.hex verify reset exit
         },
-        {
-            "label": "svd",
-            "type": "shell",
-            "command": "make", "args":  ["-C", "${config:BUILD_DIR}", "svd_${config:TARGET}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "openocd-cfg",
-            "type": "shell",
-            "command": "make", "args":  ["-C", "${config:BUILD_DIR}", "openocd_cfg_${config:TARGET}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "openocd-debug-prepare",
-            "type": "shell",
-//            "dependsOn": ["svd", "openocd-cfg", "flash"],
-            "dependsOn": ["svd", "openocd-cfg"],
-            "problemMatcher": []
-        }
     ]
 }
