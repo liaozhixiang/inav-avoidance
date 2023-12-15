@@ -14,6 +14,7 @@
 #include "drivers/time.h"
 #include "fc/rc_modes.h"
 #include "fc/rc_controls.h"
+#include "rx/rx.h"
 #include "navigation_planner.h"
 
 #define PLANNER_FRAME_SIZE 12
@@ -85,22 +86,24 @@ void plannerDataUnpack(timeUs_t currentTimeUs)
     checkSum = ~checkSum;
     checkSumValid = (checkSum == plannerInput.command[4]);
 
-    bool commandNotEmpty = (plannerInput.command[1] != 1500) || (plannerInput.command[2] != 1500) || (plannerInput.command[3] != 1500);
+    bool commandNotEmpty = (plannerInput.command[1] != PWM_RANGE_MIDDLE) || (plannerInput.command[2] != PWM_RANGE_MIDDLE) || (plannerInput.command[3] != PWM_RANGE_MIDDLE);
 
-    bool avoidActive = IS_RC_MODE_ACTIVE(BOXUSER3) ? true : false;
+    bool avoidActive = IS_RC_MODE_ACTIVE(BOXUSER1) ? true : false;
 
      
     if (updated && checkSumValid && commandNotEmpty && avoidActive) {
         plannerCommandValidity = true;
-        plannerCommand[0] = plannerInput.command[1];
-        plannerCommand[1] = plannerInput.command[2];
-        plannerCommand[2] = plannerInput.command[3];
+        //factor没有初始化
+        float factor = scaleRangef(rxGetChannelValue(15), PWM_RANGE_MIN, PWM_RANGE_MAX, 0, 2);
+        plannerCommand[0] = (uint16_t)(factor * plannerInput.command[1] + (1-factor) * PWM_RANGE_MIDDLE);
+        plannerCommand[1] = (uint16_t)(factor * plannerInput.command[2] + (1-factor) * PWM_RANGE_MIDDLE);
+        plannerCommand[2] = (uint16_t)(factor * plannerInput.command[3] + (1-factor) * PWM_RANGE_MIDDLE);
     }
     else {
         plannerCommandValidity = false;
-        plannerCommand[0] = 1500;
-        plannerCommand[1] = 1500;
-        plannerCommand[2] = 1500;
+        plannerCommand[0] = PWM_RANGE_MIDDLE;
+        plannerCommand[1] = PWM_RANGE_MIDDLE;
+        plannerCommand[2] = PWM_RANGE_MIDDLE;
     }
 }
 
@@ -158,6 +161,7 @@ void plannerDataRecieve(uint16_t byte, void *data)
             break;
 
         case END_STANDBY:
+
             if (byte == FRAME_END_2) {
                 state = WAIT_START;
                 bufferIndex = 0;

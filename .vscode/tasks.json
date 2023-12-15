@@ -6,7 +6,7 @@
         {
             "label": "Build SPEEDYBEEF405V3",
             "type": "shell",
-            "command": "make -j SPEEDYBEEF405V3",
+            "command": "cd ${workspaceFolder}/build &&  make -j SPEEDYBEEF405V3",
             "group": "build",
             "problemMatcher": [],
         },
@@ -40,7 +40,7 @@
             "command": "",
             "group": "build",
             "problemMatcher": [],
-            "dependsOn": ["Openocd start", "Openocd telnet"],
+            "dependsOn": ["start", "telnet"],
             //program /home/solaris/codes/inav/build/inav_6.1.1_SPEEDYBEEF405V3.hex verify reset exit
         },
     ]
