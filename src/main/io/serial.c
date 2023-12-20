@@ -176,7 +176,9 @@ int findSerialPortIndexByIdentifier(serialPortIdentifier_e identifier)
     }
     return -1;
 }
-
+/**
+ * 根据串口号找到这个串口现在的用途
+ */
 serialPortUsage_t *findSerialPortUsageByIdentifier(serialPortIdentifier_e identifier)
 {
     uint8_t index;
@@ -359,7 +361,7 @@ serialPort_t *openSerialPort(
     serialPortUsage_t *serialPortUsage = findSerialPortUsageByIdentifier(identifier);
     if (!serialPortUsage || serialPortUsage->function != FUNCTION_NONE) {
         // not available / already in use
-        return NULL;
+        return NULL; //返回空指针就是打开失败了
     }
 
     serialPort_t *serialPort = NULL;

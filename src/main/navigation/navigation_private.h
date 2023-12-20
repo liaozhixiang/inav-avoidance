@@ -372,7 +372,7 @@ typedef struct {
 
 typedef struct {
     /* Flags and navigation system state */
-    navigationFSMState_t        navState;
+    navigationFSMState_t        navState; // 在原先的INAV代码得到最终的desiredState后，如果当前无人机处于导航状态（凡是涉及到更新期望位置的状态），将期望方向发给另一个处理器，返回另一个虚拟航点
     navigationPersistentId_e    navPersistentId;
 
     navigationFlags_t           flags;
@@ -456,7 +456,6 @@ PG_DECLARE_ARRAY(navWaypoint_t, NAV_MAX_WAYPOINTS, nonVolatileWaypointList);
 extern navigationPosControl_t posControl;
 extern multicopterPosXyCoefficients_t multicopterPosXyCoefficients;
 
-/* Internally used functions */
 const navEstimatedPosVel_t * navGetCurrentActualPositionAndVelocity(void);
 
 bool isThrustFacingDownwards(void);

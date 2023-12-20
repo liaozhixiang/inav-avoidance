@@ -34,7 +34,7 @@
 
 typedef struct uartDevice_s {
     USART_TypeDef* dev;
-    uartPort_t port;
+    uartPort_t port; //在后面实例化了
     ioTag_t rx;
     ioTag_t tx;
     volatile uint8_t rxBuffer[UART_RX_BUFFER_SIZE];
@@ -47,7 +47,7 @@ typedef struct uartDevice_s {
     uint32_t irqPriority;
 } uartDevice_t;
 
-//static uartPort_t uartPort[MAX_UARTS];
+//static uartPort_t uartPort[MAX_UARTS]; //uart1的初始化
 #ifdef USE_UART1
 static uartDevice_t uart1 =
 {
@@ -263,7 +263,7 @@ uartPort_t *serialUART(UARTDevice_e device, uint32_t baudRate, portMode_t mode, 
 {
     uartPort_t *s;
 
-    uartDevice_t *uart = uartHardwareMap[device];
+    uartDevice_t *uart = uartHardwareMap[device]; //uartHardwareMap是一个静态全局指针变量，中断服务函数接收到的数据会暂存在这里
     if (!uart) return NULL;
 
     s = &(uart->port);

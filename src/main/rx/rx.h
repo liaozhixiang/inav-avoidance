@@ -229,4 +229,5 @@ void resumeRxSignal(void);
 // Processed RC channel value. These values might include
 // filtering and some extra processing like value holding
 // during failsafe.
+// 判断channelNumber有没有重新映射，有则返回映射后的值override，无则返回该通道的值
 int16_t rxGetChannelValue(unsigned channelNumber);

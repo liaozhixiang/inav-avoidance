@@ -4239,6 +4239,7 @@ void cliProcess(void)
     }
 }
 
+//注释掉写入flash的函数，输出的信息不会放到输入窗口中
 void cliEnter(serialPort_t *serialPort)
 {
     if (cliMode) {

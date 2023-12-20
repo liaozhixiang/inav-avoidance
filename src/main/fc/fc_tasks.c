@@ -54,6 +54,7 @@
 
 #include "navigation/navigation.h"
 #include "navigation/navigation_planner.h"
+#include "navigation/navigation_planner.h"
 
 #include "io/beeper.h"
 #include "io/lights.h"
@@ -409,8 +410,9 @@ void fcTasksInit(void)
 #endif
 #if defined(USE_SMARTPORT_MASTER)
     setTaskEnabled(TASK_SMARTPORT_MASTER, true);
-#endif
+
     setTaskEnabled(TASK_PLANNER, true);
+#endif
 }
 
 cfTask_t cfTasks[TASK_COUNT] = {
@@ -656,8 +658,8 @@ cfTask_t cfTasks[TASK_COUNT] = {
 
     [TASK_PLANNER] = {
         .taskName = "PLANNER",
-        .taskFunc = taskUpdatePlannerWayPoint,
-        .desiredPeriod = TASK_PERIOD_HZ(4),          // 5Hz @250ms
-        .staticPriority = TASK_PRIORITY_HIGH,
+        .taskFunc = plannerDataUnpack,
+        .desiredPeriod = TASK_PERIOD_HZ(10),          // 10Hz @100ms
+        .staticPriority = TASK_PRIORITY_LOW,
     },
 };

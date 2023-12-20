@@ -4,38 +4,44 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Build Matek F722-SE",
+            "label": "Build SPEEDYBEEF405V3",
             "type": "shell",
-            "command": "make MATEKF722SE",
+            "command": "cd ${workspaceFolder}/build &&  make -j SPEEDYBEEF405V3",
             "group": "build",
             "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build"
-            }
         },
+
         {
-            "label": "Build Matek F722",
+            "label": "start",
             "type": "shell",
-            "command": "make MATEKF722",
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
+            "command": "openocd",
+            "args": [
+                "-f",
+                "${workspaceFolder}/build/openocd/jlink-swd.cfg",
+                "-f",
+                "${workspaceFolder}/build/openocd/stm32f4x.cfg",
+            ],
+            "group": "none",
             "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build"
-            }
-        }
-        ,
+        },
+
         {
-            "label": "CMAKE Update",
+            "label": "telnet",
             "type": "shell",
-            "command": "cmake ..",
+            "command": "telnet localhost 4444",
+            "group": "none",
+            "problemMatcher": [],
+            "dependsOn": [],
+        },
+
+        {
+            "label": "Openocd flash",
+            "type": "shell",
+            "command": "",
             "group": "build",
             "problemMatcher": [],
-            "options": {
-                "cwd": "${workspaceFolder}/build"
-            }
-        }
+            "dependsOn": ["start", "telnet"],
+            //program /home/solaris/codes/inav/build/inav_6.1.1_SPEEDYBEEF405V3.hex verify reset exit
+        },
     ]
 }

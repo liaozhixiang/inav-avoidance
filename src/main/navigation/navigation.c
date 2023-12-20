@@ -1006,6 +1006,7 @@ static navigationFSMStateFlags_t navGetStateFlags(navigationFSMState_t state)
     return navFSM[state].stateFlags;
 }
 
+/**大概意思就是返回状态机当前状态下的 飞行模式 */
 flightModeFlags_e navGetMappedFlightModes(navigationFSMState_t state)
 {
     return navFSM[state].mapToFlightModes;
@@ -2318,6 +2319,9 @@ void updateActualHeading(bool headingValid, int32_t newHeading, int32_t newGroun
 /*-----------------------------------------------------------
  * Returns pointer to currently used position (ABS or AGL) depending on surface tracking status
  *-----------------------------------------------------------*/
+/**
+ * 若启用地形跟随，则返回AGL坐标，否则返回ABS坐标
+ */
 const navEstimatedPosVel_t * navGetCurrentActualPositionAndVelocity(void)
 {
     return posControl.flags.isTerrainFollowEnabled ? &posControl.actualState.agl : &posControl.actualState.abs;
@@ -2971,7 +2975,7 @@ void calculateInitialHoldPosition(fpVector3_t * pos)
  * Set active XYZ-target and desired heading
  * 输入：位置、航向、更新标志
  * 输出：空
- * 功能：将位置、航向等按条件保存到desiredState中，期望的状态(x,y,,z,yaw)
+ * 功能：将位置、航向等按条件保存到desiredState中，期望的状态(x,y,z,yaw)
  */
 void setDesiredPosition(const fpVector3_t * pos, int32_t yaw, navSetWaypointFlags_t useMask)
 {
@@ -3117,7 +3121,7 @@ void updateClimbRateToAltitudeController(float desiredClimbRate, float targetAlt
 
     // Terrain following uses different altitude measurement
     const float altitudeToUse = navGetCurrentActualPositionAndVelocity()->pos.z;
-
+    //不是RESET模式，或者爬升率不为0（逻辑运算律补习一下）
     if (mode != ROC_TO_ALT_RESET && desiredClimbRate) {
         /* ROC_TO_ALT_CONSTANT - constant climb rate
          * ROC_TO_ALT_TARGET - constant climb rate until close to target altitude reducing to min rate when altitude reached
@@ -3159,6 +3163,7 @@ void updateClimbRateToAltitudeController(float desiredClimbRate, float targetAlt
                 targetHoldActive = false;
             }
         }
+        //四轴模式
         else {
             // Multicopter climb-rate control is closed-loop, it's possible to directly calculate desired altitude setpoint to yield the required RoC/RoD
             posControl.desiredState.pos.z = altitudeToUse + (desiredClimbRate / posControl.pids.pos[Z].param.kP);
@@ -3271,6 +3276,10 @@ static void resetPositionController(void)
     }
 }
 
+/**
+ * 根据rcCommand调整部分控制参数
+ * 返回bool类型，固定翼模式返回ture，多轴模式course hold 和 gps cruise返回true，其他情况（处于course hold模式但没有输入、控制器没有输入）返回false，直接将遥控值传给angle pid
+ */
 static bool adjustPositionFromRCInput(void)
 {
     bool retValue;
@@ -3745,14 +3754,14 @@ static void processNavigationRCAdjustments(void)
         return;
     }
 
-    posControl.flags.isAdjustingAltitude = (navStateFlags & NAV_RC_ALT) && adjustAltitudeFromRCInput();
+    posControl.flags.isAdjustingAltitude = (navStateFlags & NAV_RC_ALT) && adjustAltitudeFromRCInput();//如果当前具有高度控制状态且遥控器有有输出值
     posControl.flags.isAdjustingPosition = (navStateFlags & NAV_RC_POS) && adjustPositionFromRCInput();
     posControl.flags.isAdjustingHeading = (navStateFlags & NAV_RC_YAW) && adjustHeadingFromRCInput();
 }
 
 /*
  * A main function to call position controllers at loop rate
- * 将前面航点导航和高度保持获得的期望位置 -> 速度 -> 角速度 -> 倾角， 比较底层的控制
+ * 信息流向：期望位置 -> 速度 -> 角速度 -> 倾角 -> rcCommand
  */
 void applyWaypointNavigationAndAltitudeHold(void)
 {
@@ -4310,7 +4319,7 @@ void updateWaypointsAndNavigationMode(void)
     // Update flight behaviour modifiers 
     updateFlightBehaviorModifiers();
 
-    // Process switch to a different navigation mode (if needed) //当遥控器发出模式切换指令时，通过这一函数切换当前飞控模式，处理状态机中的状态转移
+    // Process switch to a different navigation mode (if needed) //当遥控器发出模式切换指令时，通过这一函数切换当前飞控模式，处理状态机中的状态转移，在航点导航模式中，将计算得到的期望位置保存在desiredposition中
     navProcessFSMEvents(selectNavEventFromBoxModeInput());
 
     // Process pilot's RC input to adjust behaviour

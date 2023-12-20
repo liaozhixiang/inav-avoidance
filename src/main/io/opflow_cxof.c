@@ -83,7 +83,7 @@ static bool cxofOpflowInit(void)
     return true;
 }
 
-static bool cxofOpflowUpdate(opflowData_t * data)
+static bool cxofOpflowUpdate(opflowData_t * data) //不是中断服务函数触发的，所以不是在回调函数中用
 {
     static timeUs_t previousTimeUs = 0;
     const timeUs_t currentTimeUs = micros();

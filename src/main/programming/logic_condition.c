@@ -1016,7 +1016,7 @@ float NOINLINE getThrottleScale(float globalThrottleScale) {
         return globalThrottleScale;
     }
 }
-
+/* 有时电机安装位置并非常规，因此通过axis来确定使用哪一个通道的信号 */
 int16_t getRcCommandOverride(int16_t command[], uint8_t axis) {
     int16_t outputValue = command[axis];
 
